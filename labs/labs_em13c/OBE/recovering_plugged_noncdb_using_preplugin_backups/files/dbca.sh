@@ -1,0 +1,2 @@
+export ORACLE_HOME=/u01/app/oracle/product/18.1.0/dbhome_1
+$ORACLE_HOME/bin/dbca -silent -createDatabase -templateName General_Purpose.dbc -gdbname NONCDB -sid NONCDB -createAsContainerDatabase false -responseFile NO_VALUE -characterSet AL32UTF8 -totalMemory 1800 -sysPassword password -systemPassword password -enableArchive true -recoveryAreaDestination /u03/app/oracle/fast_recovery_area -recoveryAreaSize 15000 -datafileDestination /u02/app/oracle/oradata

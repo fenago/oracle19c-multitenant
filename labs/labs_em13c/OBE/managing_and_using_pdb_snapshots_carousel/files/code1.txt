@@ -1,0 +1,9 @@
+CON_NAME SNAPSHOT_NAME             SNAPSHOT_SCN SNAPSHOT_TIME
+-------- ------------------------- ------------ -------------
+FULL_SNAPSHOT_PATH
+-------------------------------------------------------------------------------------------------------------
+PDB_2    SNAP_2404941862_965530898      6099402    1516071738
+/u02/app/oracle/oradata/ORCL/pdb_2/ORCL/62DC9DAB24F54794E0532133960A9CF4/datafile/snap_2404941862_6099402.pdb
+
+PDB_2    SNAP_2404941862_965531018      6099772    1516071861
+/u02/app/oracle/oradata/ORCL/pdb_2/ORCL/62DC9DAB24F54794E0532133960A9CF4/datafile/snap_2404941862_6099772.pdb

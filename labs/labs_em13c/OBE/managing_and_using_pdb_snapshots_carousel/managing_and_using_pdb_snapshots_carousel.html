@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta content="text/html; charset=utf-8" http-equiv="content-type">
+    <!-- Part number: E92408-01 -->
+    <!-- Published date: June 2018 -->
+    <!-- See this link for directions on getting a part number: https://confluence.oraclecorp.com/confluence/display/DLPP/Archive+an+OBE -->
+    <!-- Template date: 10/18/17 -->
+    <title>Managing and Using PDB Snapshots in a Carousel</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="robots" content="INDEX, FOLLOW">
+    <meta name="description" content="Learn how to create PDB snapshots in a carousel and how to use those snapshots to recover a PDB beyond the flashback retention period.">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="css/normalize.min.css">
+    <link rel="stylesheet" href="css/font-awesome.min.css">
+    <link rel="stylesheet" href="css/obe-lite.css">
+    <script src="js/jquery-1.11.0.min.js"></script>
+    <script src="js/jquery-ui-1.10.4.custom.js"></script>
+    <script src="js/jquery.tocify.jd.js"></script>
+    <script src="js/leftnav.js"></script>
+  </head>
+  <body>
+    <header>
+      <div class="w1024" style="min-height:55px; display:block;"> <a href="https://docs.oracle.com"
+          class="oracle-logo"> <img src="./img/oracle_doc_logo.png" alt="Oracle Documentation"
+            style="max-width: none;" height="22" width="236"></a> </div>
+    </header>
+    <!--end header-->
+    <div id="content">
+      <h1><img src="./img/obe_tag.png" alt="Oracle by Example branding" align="middle">Managing
+        and Using Pluggable Database Snapshots in a Carousel</h1>
+      <div class="w1024" style="clear:both; position:relative; margin-top:40px;">
+        <div class="navbackwide border-right"><!-- --></div>
+        <div id="shownav" title="Show Navigation" tabindex="0"><span class="fa fa-list"></span></div>
+        <div id="sidebar"><!-- -->
+          <div class="left-nav-tut"><!-- -->
+            <div id="hidenavw" title="Hide Navigation" tabindex="0"><span class="fa fa-close"></span></div>
+            <div id="navbar" class="left-nav-w"><!-- -->
+              <div id="toc" class="tocify"><!-- --></div>
+            </div>
+          </div>
+        </div>
+        <div id="bookContainer">
+          <article>
+            <section>
+              <h2><img src="./img/32_begin.png" alt="section 0" class="num_circ"
+                  height="32" width="32">Before You Begin</h2>
+              <p>This 15-minute tutorial shows you how to create pluggable
+                database (PDB) snapshots in a carousel. It also shows you how to
+                use those PDB snapshots to create new PDBs, and therefore view
+                data as it was in the past.</p>
+              <h3>Background</h3>
+              <p> </p>
+              <p>This tutorial demonstrates how you can create and alter PDBs by
+                using the new <code> SNAPSHOT </code> clause to manage
+                snapshot carousels. You create four PDBs: <code> PDB_1, PDB_2,
+                  PDB1_FROM_FIRST_SNAP, </code> and <code>
+                  PDB1_FROM_SECOND_SNAP. </code></p>
+              <h3>What Do You Need?</h3>
+              <ul>
+                <li>Oracle Database 18c installed</li>
+                <li>A container database (CDB)</li>
+                <li><code>TNSNAMES.ora </code> adjusted to provide connectivity
+                  to these PDBs</li>
+              </ul>
+            </section>
+            <hr>
+            <section>
+              <h2 id="section_1" role="button" style="text-align: left;"><img src="./img/32_1.png"
+                  alt="section 1" class="num_circ" height="32" width="32">Enable
+                PDBs for the PDB Snapshot Carousel</h2>
+              <ol>
+                <li>Log in to the CDB root.
+                  <pre><code>sqlplus / AS SYSDBA</code></pre>
+                </li>
+                <li>Check the maximum number of PDB snapshots that you can
+                  create for each PDB in a carousel.
+                  <pre><code>SELECT property_name, property_value FROM database_properties
+WHERE  property_name LIKE '%SNAP%';  
+
+PROPERTY_NAME                            PROPERTY_VALUE
+---------------------------------------- --------------------
+MAX_PDB_SNAPSHOTS                        8</code></pre>
+                  <p class="note"> The <code>MAX_PDB_SNAPSHOTS </code>
+                    parameter is already set to its maximum permitted value.
+                    Because snapshots can take large amounts of disk space, you
+                    can reduce the value by using <code> ALTER DATABASE SET
+                      MAX_PDB_SNAPSHOTS </code> in a PDB.</p>
+                </li>
+                <li>Create a directory for the&nbsp; <code> pdb_1 </code> PDB.
+                  <pre><code>mkdir -p /u02/app/oracle/oradata/ORCL/pdb_1</code></pre>
+                </li>
+                <li>Create the <code>PDB_1 </code> in <code> ORCL </code>
+                  and enable it for manual PDB snapshot creation.
+                  <pre><code>CREATE PLUGGABLE DATABASE pdb_1
+              ADMIN USER pdb_1_admin IDENTIFIED BY <em>password </em>ROLES=(CONNECT)
+              CREATE_FILE_DEST='/u02/app/oracle/oradata/ORCL/pdb_1'
+       SNAPSHOT MODE MANUAL;  </code></pre>
+                </li>
+                <li>Open <code> PDB_1. </code>
+                  <pre><code>ALTER PLUGGABLE DATABASE pdb_1 OPEN;</code></pre>
+                  <p class="note"> By default, new PDBs are the manual PDB
+                    snapshot type. The <code>SNAPSHOT MODE MANUAL </code>
+                    clause isn't necessary.</p>
+                </li>
+                <li>Verify that <code> PDB_1 </code> is enabled for manual PDB
+                  snapshot creation.
+                  <pre>SELECT pdb_name, snapshot_mode FROM cdb_pdbs;
+
+PDB_NAME SNAPSH
+-------- ------
+PDB$SEED MANUAL
+PDB_1    MANUAL
+</pre></li>
+                <li>Create a directory for the <code> pdb_2 </code> PDB.
+                  <pre><code>mkdir -p /u02/app/oracle/oradata/ORCL/pdb_2</code></pre>
+                </li>
+                <li>Create <code> pdb_2 </code> in <code> ORCL </code> and
+                  enable it for automatic PDB snapshot creation. The PDB
+                  snapshots are automatically created every two minutes.
+                  <pre><code>CREATE PLUGGABLE DATABASE pdb_2
+              ADMIN USER pdb_2_admin IDENTIFIED BY <em>password</em> ROLES=(CONNECT)
+              CREATE_FILE_DEST='/u02/app/oracle/oradata/ORCL/pdb_2'
+       SNAPSHOT MODE EVERY 2 MINUTES;</code></pre>
+                </li>
+                <li>Open <code> PDB_2. </code>
+                  <pre><code>ALTER PLUGGABLE DATABASE pdb_2 OPEN;</code></pre>
+                </li>
+                <li>Verify that <code> PDB_2 </code> is enabled for automatic
+                  PDB snapshot creation.
+                  <pre><code>SELECT pdb_name, snapshot_mode FROM cdb_pdbs;
+
+PDB_NAME SNAPSH
+-------- ------
+PDB$SEED MANUAL
+PDB_1    MANUAL
+PDB_2    AUTO
+</code></pre></li>
+                <li>After two minutes, verify that PDB snapshots are
+                  automatically created for <code> pdb_2. </code>Refer to the
+                  listing in <a href="files/code1.txt" target="_blank">code1</a>
+                  for an example of the output.
+                  <pre><code>SELECT con_name, snapshot_name, snapshot_scn, snapshot_time, full_snapshot_path 
+FROM   CDB_PDB_SNAPSHOTS;</code></pre>
+                  <p class="note"> What is the PDB snapshot type? The PDB
+                    snapshot is an archive file (<code>.pdb</code>) containing
+                    the contents of the PDB copy at snapshot creation. </p>
+                </li>
+              </ol>
+            </section>
+            <hr>
+            <section>
+              <h2 id="section_2" role="button" style="text-align: left;"><img src="./img/32_2.png"
+                  alt="section 2" class="num_circ" height="32" width="32">Create
+                Manual PDB Snapshots in a Carousel</h2>
+              <ol>
+                <li>Log in to <code> PDB_1. </code>
+                  <pre><code>CONNECT sys@PDB_1 AS SYSDBA 
+Enter password: <em>password</em></code></pre>
+                </li>
+                <li>Create the <code>schema_app1 </code> application account.
+                  <pre><code>CREATE USER schema_app1 IDENTIFIED BY <em>password</em>; </code></pre>
+                </li>
+                <li>Grant privileges to <code> schema_app1. </code>
+                  <pre><code>GRANT create session, create table, unlimited tablespace TO schema_app1; </code></pre>
+                </li>
+                <li>Create the <code> schema_app1.tab1 </code> table.
+                  <pre><code>CREATE TABLE schema_app1.tab1 (C number, label VARCHAR2(40));</code></pre>
+                </li>
+                <li>Insert rows in the <code> schema_app1.tab1 </code> table.
+                  <pre><code>INSERT INTO schema_app1.tab1 VALUES (1,'Label1');
+COMMIT;</code></pre>
+                </li>
+                <li>Create the first manual PDB snapshot for <code> pdb_1. </code>
+                  <pre><code>ALTER PLUGGABLE DATABASE pdb_1 SNAPSHOT pdb1_first_snap;</code></pre>
+                </li>
+                <li>Verify that the PDB snapshot is created.
+                  <pre><code>SELECT con_name, snapshot_name, snapshot_scn, snapshot_time, full_snapshot_path 
+FROM   cdb_pdb_snapshots;
+
+CON_NAME SNAPSHOT_NAME             SNAPSHOT_SCN SNAPSHOT_TIME
+-------- ------------------------- ------------ -------------
+FULL_SNAPSHOT_PATH
+--------------------------------------------------------------------
+PDB_1    <strong>PDB1_FIRST_SNAP</strong>                <strong>6103650</strong>    1516072836
+/u02/app/oracle/oradata/ORCL/pdb_1/ORCL/62DC9DAB24F24794E0532133960A9CF4/datafile/snap_2828879257_<strong>6103650</strong>.pdb</code></pre>
+                </li>
+                <li>Apply application changes to the table.
+                  <pre><code>INSERT INTO schema_app1.tab1 VALUES (2,'Label2');
+COMMIT;</code></pre>
+                </li>
+                <li>Create another table with rows.
+                  <pre><code>CREATE TABLE schema_app1.tab2 (C number, description VARCHAR2(40));
+INSERT INTO schema_app1.tab2 VALUES (1,'Description1');
+COMMIT;</code></pre>
+                </li>
+                <li>Create the second <code> pdb1_second_snap </code> PDB
+                  snapshot.
+                  <pre><code>ALTER PLUGGABLE DATABASE pdb_1 SNAPSHOT pdb1_second_snap;</code></pre>
+                </li>
+                <li>Verify that the second PDB snapshot is created. Read the
+                  list in <a href="files/code2.txt" target="_blank">code2</a>
+                  for typical output.
+                  <pre><code>SELECT con_name, snapshot_name, snapshot_scn, snapshot_time, full_snapshot_path 
+FROM   cdb_pdb_snapshots;
+</code></pre>After creating the second snapshot, the application still creates
+                  tables and loads data.</li>
+                <li>Create another table with rows.
+                  <pre>CREATE TABLE schema_app1.tab3 (COL1 number, Description VARCHAR2(10));
+INSERT INTO schema_app1.tab3 VALUES (1,'Desc1');
+COMMIT;</pre>
+                </li>
+                <li>Leave <code> PDB_1, </code> and check that PDB snapshots
+                  are automatically created for <code> pdb_2. </code>Log in to
+                  <code> PDB_2. </code>
+                  <pre><code>CONNECT sys@PDB_2 AS SYSDBA 
+Enter password: <em>password</em></code></pre>
+                </li>
+                <li> Check that PDB snapshots are created. Read the list in <a
+                    href="files/code3.txt" target="_blank">code3</a> for typical
+                  output.
+                  <pre><code>SELECT con_name, snapshot_name, snapshot_scn, snapshot_time, full_snapshot_path 
+FROM   cdb_pdb_snapshots;</code></pre>
+                </li>
+                <li>You can also create manual PDB snapshots for PDBs enabled
+                  for automatic PDB snapshots. Create the<code> PDB2_MANUAL_SNAP
+                  </code> manual snapshot.
+                  <pre>ALTER PLUGGABLE DATABASE pdb_2 SNAPSHOT pdb2_manual_snap;</pre>
+                </li>
+                <li>Check that the manual PDB snapshot is created for <code>
+                    pdb_2. </code> Read the list in <a href="files/code4.txt"
+                    target="_blank">code4</a> for typical output.
+                  <pre><code>SELECT con_name, snapshot_name, snapshot_scn, snapshot_time, full_snapshot_path 
+FROM   cdb_pdb_snapshots;</code></pre>
+                  <p class="note"> Why are there still only eight PDB snapshots
+                    although more were created (see snapshot_SCN)? You can
+                    create a&nbsp; maximum number of eight PDB snapshots for a
+                    PDB. The oldest snapshot was dropped so that you can create
+                    a new snapshot. It works on a FIFO basis.</p>
+                </li>
+              </ol>
+            </section>
+            <hr>
+            <section>
+              <h2 id="section_3" role="button" style="text-align: left;"><img src="./img/32_3.png"
+                  alt="section 3" class="num_circ" height="32" width="32">Disable
+                PDB Snapshot Creation in a Carousel</h2>
+              <ol>
+                <li>Stop the PDB snapshot creation for <code>pdb_2</code>.
+                  <pre>ALTER PLUGGABLE DATABASE pdb_2 SNAPSHOT MODE NONE;</pre>
+                  <p class="note"> Are PDB snapshots that you created before
+                    this operation still available and usable? Yes. Read the
+                    list in <a href="files/code4.txt" target="_blank">code4</a>.</p>
+                  <pre><code>SELECT con_name, snapshot_name, snapshot_scn, snapshot_time,
+       full_snapshot_path
+FROM   CDB_PDB_SNAPSHOTS;
+</code></pre>
+                  <p class="note"> You can flash back to the time or System
+                    Change Number (SCN) available from these snapshots.</p>
+                </li>
+                <li>Verify that <code> PDB_2 </code> is disabled for PDB
+                  snapshot creation.
+                  <pre><code>SELECT pdb_name, snapshot_mode FROM cdb_pdbs;
+
+PDB_NAME SNAPSH
+-------- ------
+PDB_2    NONE</code></pre>
+                </li>
+                <li>Quit the session.
+                  <pre><code>EXIT</code></pre>
+                </li>
+              </ol>
+            </section>
+            <hr>
+            <section>
+              <h2 id="section_4" role="button" style="text-align: left;"><img src="./img/32_4.png"
+                  alt="section 4" class="num_circ" height="32" width="32">Create
+                PDBs From PDB Snapshots of a Carousel</h2>
+              <p>A user asks you to report information about the application at
+                the <code> pdb1_first_snap </code> time. To do that, you
+                create a PDB from the <code> pdb1_first_snap </code> PDB
+                snapshot.</p>
+              <ol>
+                <li>Create a directory for the <code> pdb1_from_first_snap </code>
+                  PDB.
+                  <pre><code>mkdir -p /u02/app/oracle/oradata/ORCL/pdb1_from_first_snap</code></pre>
+                </li>
+                <li>Log in to the CDB root.
+                  <pre><code>sqlplus / AS SYSDBA</code> </pre>
+                </li>
+                <li>Create the <code> pdb1_from_first_snap </code> PDB from
+                  the <code> pdb1_first_snap </code> PDB snapshot.
+                  <pre><code>ALTER SESSION SET  
+    db_create_file_dest='/u02/app/oracle/oradata/ORCL/pdb1_from_first_snap';</code></pre>
+                  <pre><code>CREATE PLUGGABLE DATABASE pdb1_from_first_snap FROM pdb_1 
+       USING SNAPSHOT pdb1_first_snap;</code></pre>
+                </li>
+                <li>Open <code> pdb1_from_first_snap. </code>
+                  <pre><code>ALTER PLUGGABLE DATABASE pdb1_from_first_snap OPEN;
+</code></pre> </li>
+                <li>Connect to <code> pdb1_from_first_snap. </code>
+                  <pre><code>CONNECT sys@pdb1_from_first_snap AS SYSDBA
+Enter password: <em>password</em></code></pre>
+                </li>
+                <li>To verify that the data corresponds to the application at
+                  the <code> pdb1_first_snap </code> time, view the <code>schema_app1.tab1
+                    </code> table.
+                  <pre><code>SELECT * FROM schema_app1.tab1;
+         C LABEL
+---------- ----------------------------------------
+         1 Label1</code></pre>
+                </li>
+                <li>View the <code> schema_app1.tab2 </code> table.
+                  <pre><code>SELECT * FROM schema_app1.tab2;
+SELECT * FROM schema_app1.tab2
+                          *
+ERROR at line 1:
+ORA-00942: table or view does not exist</code></pre>
+                </li>
+                <p class="note"> The user asks you to report information about
+                  the application at the <code> pdb1_second_snap </code> time.
+                  To do that, you&nbsp; create a PDB from the <code>
+                    pdb1_second_snap </code> PDB snapshot. </p>
+                <li>Connect to the CDB root.
+                  <pre><code>CONNECT / AS SYSDBA</code> </pre>
+                </li>
+                <li>Create a directory for the <code> pdb1_from_second_snap </code>
+                  PDB.
+                  <pre><code>HOST mkdir -p /u02/app/oracle/oradata/ORCL/pdb1_from_second_snap</code></pre>
+                </li>
+                <li>Create the <code> pdb1_from_second_snap </code> PDB from
+                  the <code> pdb1_second_snap </code> PDB snapshot.
+                  <pre><code>ALTER SESSION SET   
+    db_create_file_dest='/u02/app/oracle/oradata/ORCL/pdb1_from_second_snap';</code></pre>
+                  <pre><code>CREATE PLUGGABLE DATABASE pdb1_from_second_snap FROM pdb_1 
+       USING SNAPSHOT pdb1_second_snap;</code></pre>
+                </li>
+                <li>Open <code> pdb1_from_second_snap. </code>
+                  <pre><code>ALTER PLUGGABLE DATABASE pdb1_from_second_snap OPEN;
+</code></pre> </li>
+                <li>Connect to <code> pdb1_from_second_snap. </code>
+                  <pre><code>CONNECT sys@pdb1_from_second_snap AS SYSDBA
+Enter password: <em>password</em></code></pre>
+                </li>
+                <li>To verify that the data corresponds to the application at <code>
+                    pdb1_second_snap </code> time, view the <code>
+                    schema_app1.tab1 </code> table.
+                  <pre><code>SELECT * FROM schema_app1.tab1;
+
+         C LABEL
+---------- ----------------------------------------
+         1 Label1
+         2 Label2</code></pre>
+                </li>
+                <li>View the<code> schema_app1.tab2 </code> table.
+                  <pre><code>SELECT * FROM schema_app1.tab2;
+
+         C DESCRIPTION
+---------- ----------------------------------------
+         1 Description1</code></pre>
+                </li>
+              </ol>
+            </section>
+            <hr>
+            <section>
+              <h2 id="section_5" role="button" style="text-align: left;"><img src="./img/32_5.png"
+                  alt="section 5" class="num_circ" height="32" width="32">Drop
+                PDB Snapshots of a Carousel</h2>
+              <ol>
+                <li>Connect to PDB_1.
+                  <pre><code>CONNECT sys@PDB_1 AS SYSDBA
+Enter password: <em>password</em></code></pre>
+                </li>
+                <li>Drop the <code>pdb1_first_snap PDB snapshot.</code>
+                  <pre><code>ALTER PLUGGABLE DATABASE pdb_1 DROP SNAPSHOT PDB1_FIRST_SNAP;</code></pre>
+                </li>
+                <li>Drop the <code>pdb1_second_snap PDB snapshot.</code>
+                  <pre><code>ALTER PLUGGABLE DATABASE pdb_1 DROP SNAPSHOT PDB1_SECOND_SNAP;
+</code></pre>
+                  <p class="note"> Do the PDBs created from the dropped
+                    snapshots still exist? Yes, they still exist because PDB
+                    snapshots are created as full clones. You don't have to
+                    materialize a PDB snapshot in a carousel. <strong>Note: </strong>If
+                    you use the <code> SNAPSHOT COPY </code> clause with the <code>
+                      USING SNAPSHOT </code> clause, then the <code> SNAPSHOT
+                      COPY </code> clause is ignored.</p>
+                  <pre><code>CONNECT / AS SYSDBA</code></pre>
+                  <pre><code>SHOW PDBS
+
+    CON_ID CON_NAME                       OPEN MODE  RESTRICTED
+---------- ------------------------------ ---------- ----------
+         2 PDB$SEED                       READ ONLY  NO
+         4 PDB_1                          READ WRITE NO
+         5 PDB_2                          READ WRITE NO
+         7 PDB1_FROM_FIRST_SNAP           READ WRITE NO
+         8 PDB1_FROM_SECOND_SNAP          READ WRITE NO
+</code></pre> </li>
+                <li>Quit the session.
+                  <pre><code>EXIT</code></pre>
+                </li>
+              </ol>
+            </section>
+          </article>
+        </div>
+        <br class="clearfloat">
+      </div>
+    </div>
+    <!--close main-->
+    <!--end content-->
+    <div class="footer-container ">
+      <div style="max-width: 994px; padding:10px 0 0 17px;">
+        <footer class="footer-list">
+          <ul>
+            <li> <a href="https://www.oracle.com/corporate/index.html" target="_blank">About
+                Oracle</a> </li>
+            <li> <a href="https://www.oracle.com/us/corporate/contact/index.html"
+                target="_blank">Contact Us</a> </li>
+            <li> <a href="https://www.oracle.com/us/legal/index.html" target="_blank">Legal
+                Notices</a> </li>
+            <li> <a href="https://www.oracle.com/us/legal/terms/index.html" target="_blank">Terms
+                of Use</a> </li>
+            <li> <a href="https://www.oracle.com/us/legal/privacy/index.html" target="_blank">Your
+                Privacy Rights</a> </li>
+            <li><a href="https://www.oracle.com/pls/topic/lookup?ctx=cpyr&amp;id=en">Copyright
+                © 2018, Oracle and/or its affiliates. All rights reserved.</a></li>
+          </ul>
+        </footer>
+      </div>
+      <script type="text/javascript" src="https://www.oracleimg.com/us/assets/metrics/ora_docs.js"></script>
+    </div>
+  </body>
+</html>

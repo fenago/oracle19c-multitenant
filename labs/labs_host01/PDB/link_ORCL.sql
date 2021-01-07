@@ -1,0 +1,7 @@
+set echo on
+DROP PUBLIC DATABASE LINK link_ORCL;
+CREATE PUBLIC DATABASE LINK link_ORCL
+       CONNECT TO system IDENTIFIED BY Welcome_1
+       USING 'ORCL';
+	   exit
+	   

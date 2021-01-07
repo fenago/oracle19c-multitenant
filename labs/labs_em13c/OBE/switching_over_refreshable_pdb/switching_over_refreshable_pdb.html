@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta content="text/html; charset=utf-8" http-equiv="content-type">
+    <!-- Part number: E92410-01 -->
+    <!-- Published date: June 2018 -->
+    <!-- See this link for directions on getting a part number: https://confluence.oraclecorp.com/confluence/display/DLPP/Archive+an+OBE -->
+    <!-- Template date: 10/18/17 -->
+    <title>Switching Over a Refreshable Cloned PDB</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="robots" content="INDEX, FOLLOW">
+    <meta name="description" content="Learn how to reverse the roles of a primary pluggable database and its refreshable cloned PDB.">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="css/normalize.min.css">
+    <link rel="stylesheet" href="css/font-awesome.min.css">
+    <link rel="stylesheet" href="css/obe-lite.css">
+    <script src="js/jquery-1.11.0.min.js"></script>
+    <script src="js/jquery-ui-1.10.4.custom.js"></script>
+    <script src="js/jquery.tocify.jd.js"></script>
+    <script src="js/leftnav.js"></script>
+  </head>
+  <body>
+    <header>
+      <div class="w1024" style="min-height:55px; display:block;"> <a href="https://docs.oracle.com"
+          class="oracle-logo"> <img src="./img/oracle_doc_logo.png" alt="Oracle Documentation"
+            style="max-width: none;" height="22" width="236"></a> </div>
+    </header>
+    <!--end header-->
+    <div id="content">
+      <h1><img src="./img/obe_tag.png" alt="Oracle by Example branding" align="middle">Switching
+        Over a Refreshable Cloned PDB</h1>
+      <div class="w1024" style="clear:both; position:relative; margin-top:40px;">
+        <div class="navbackwide border-right"><!-- --></div>
+        <div id="shownav" title="Show Navigation" tabindex="0"><span class="fa fa-list"></span></div>
+        <div id="sidebar"><!-- -->
+          <div class="left-nav-tut"><!-- -->
+            <div id="hidenavw" title="Hide Navigation" tabindex="0"><span class="fa fa-close"></span></div>
+            <div id="navbar" class="left-nav-w"><!-- -->
+              <div id="toc" class="tocify"><!-- --></div>
+            </div>
+          </div>
+        </div>
+        <div id="bookContainer">
+          <article>
+            <section>
+              <h2><img src="./img/32_begin.png" alt="section 0" class="num_circ"
+                  height="32" width="32">Before You Begin</h2>
+              <p>This 15-minute tutorial shows you how to reverse the roles of a
+                primary pluggable database (PDB) and its refreshable clone PDB.
+                The refreshable clone PDB can be made the primary PDB while the
+                primary PDB would become the refreshable clone.</p>
+              <h3>Background</h3>
+              <p>Oracle Database 12c allows automatic refreshable clone PDBs.</p>
+              <p>Oracle Database 18c allows an automatic refreshable clone PDB
+                to be reversed as the primary PDB, and the primary PDB be
+                reversed as the automatic refreshable clone PDB.</p>
+              <h3>What Do You Need?</h3>
+              <ul>
+                <li>Familiarity with Oracle Database 12<i>c</i> automatic
+                  refreshable clone PDBs</li>
+                <li>Oracle Database 18c installed</li>
+                <li>A container database (CDB)<code></code></li>
+                <ul>
+                </ul>
+              </ul>
+            </section>
+            <hr>
+            <section>
+              <h2 id="section_1" role="button" style="text-align: left;"><img src="./img/32_1.png"
+                  alt="section 1" class="num_circ" height="32" width="32">Configure
+                the Primary PDB</h2>
+              <p>In this section, you create a database link to connect to <code>
+                  PDB_REFRESHED </code> in <code> ORCL. </code> This session
+                is called <em> Primary Session. </em></p>
+              <ol>
+                <li>Create in <code> ORCL </code> the regular <code> PDB1 </code>to
+                  later create the database link to connect to the future
+                  refreshable PDB in <code> ORCL. </code>First create a
+                  directory for <code> PDB1. </code>
+                  <pre><code>mkdir /u02/app/oracle/oradata/ORCL/pdb1</code></pre>
+                </li>
+                <li>Connect to the CDB root.
+                  <pre><code>sqlplus sys@ORCL AS SYSDBA
+Enter password: <em>password</em></code></pre>
+                </li>
+                <li>Before creating <code> PDB1, </code> drop <code> PDB1. </code>
+                  <pre><code>ALTER PLUGGABLE DATABASE ALL CLOSE;</code></pre>
+                  <pre><code>DROP PLUGGABLE DATABASE pdb1 INCLUDING DATAFILES;</code></pre>
+                </li>
+                <li>Create <code> PDB1. </code>
+                  <pre><code>ALTER SESSION SET DB_CREATE_FILE_DEST='/u02/app/oracle/oradata/ORCL/pdb1';</code></pre>
+                  <pre><code>CREATE PLUGGABLE DATABASE pdb1
+       ADMIN USER pdb_admin IDENTIFIED BY <em>password</em>
+       ROLES=(CONNECT)
+       CREATE_FILE_DEST='/u02/app/oracle/oradata/ORCL/pdb1';</code></pre>
+                </li>
+                <li>Open <code> PDB1. </code>
+                  <pre><code>ALTER PLUGGABLE DATABASE pdb1 OPEN;</code></pre>
+                </li>
+                <li>Create in <code> ORCL </code> a common user.
+                  <pre><code>DROP USER c##u1 CASCADE;
+CREATE USER c##u1 IDENTIFIED BY <em>password</em> CONTAINER=ALL;</code></pre>
+                </li>
+                <li>Grant the common user the <code> SYSOPER </code>
+                  administrative system privilege and others.
+                  <pre><code>GRANT create session, resource, create any table, unlimited tablespace, sysoper, 
+      create pluggable database TO c##u1 CONTAINER = ALL;
+</code></pre> </li>
+                <li>Create in <code> ORCL </code> a public fixed-user database
+                  link relying on the common user created in a previous step.
+                  <pre><code>DROP PUBLIC DATABASE LINK link_ORCL;
+CREATE PUBLIC DATABASE LINK link_ORCL CONNECT TO c##u1 IDENTIFIED BY <em>password 
+  </em>     USING 'ORCL';
+</code></pre></li>
+                <li>In the primary PDB, create a <code> USERSWITCH.BIGTAB </code>
+                  table with 10000 rows. First connect to <code> PDB1.</code>
+                  <pre><code>CONNECT system@PDB1
+Enter password: <em>password</em></code></pre>
+                </li>
+                <li>Create a local user.
+                  <pre><code>SET sqlprompt "SQL_prim&gt; "</code></pre>
+                  <pre><code>DROP USER userswitch CASCADE;
+CREATE USER userswitch IDENTIFIED BY <em>password</em>;</code></pre>
+                </li>
+                <li>Grant the user system privileges.
+                  <pre><code>GRANT dba, unlimited tablespace TO userswitch;</code></pre>
+                </li>
+                <li>Create the <code> USERSWITCH.BIGTAB </code> table.
+                  <pre><code>CREATE TABLE userswitch.bigtab (label varchar2(30));</code></pre>
+                </li>
+                <li>Load rows into <code> USERSWITCH.BIGTAB </code> table.
+                  <pre><code>BEGIN FOR i IN 1..10000 LOOP
+    INSERT INTO userswitch.bigtab VALUES ('DATA FROM PDB1');
+    COMMIT; 
+    END LOOP;
+    END;
+/</code></pre>
+                </li>
+                <li>Count the rows.
+                  <pre><code>SELECT count(*) FROM userswitch.bigtab;
+
+COUNT(*)
+----------
+     10000</code></pre>
+                </li>
+                <li>Display the data in the rows.
+                  <pre><code>SELECT DISTINCT label FROM userswitch.bigtab;
+
+LABEL
+------------------------------
+DATA FROM PDB1</code></pre>
+                </li>
+              </ol>
+            </section>
+            <hr>
+            <section>
+              <h2 id="section_2" role="button" style="text-align: left;"><img src="./img/32_2.png"
+                  alt="section 2" class="num_circ" height="32" width="32">Create
+                the Refreshable Cloned PDB</h2>
+              <p>In this section, you create the <code> PDB_REFRESHED </code>
+                automatically refreshed from <code> PDB1</code> every 2
+                minutes. This session is called <em> Refresh Session</em>.</p>
+              <ol>
+                <li>Clone the <code> PDB_REFRESHED </code> PDB from <code>
+                    PDB1 </code> while <code> PDB1 </code> is still up and
+                  fully functional. First create the directory for the <code>
+                    PDB_REFRESHED </code> PDB.
+                  <pre><code>mkdir -p /u02/app/oracle/oradata/ORCL/pdb_refreshed</code></pre>
+                </li>
+                <li>Connect to the CDB root.
+                  <pre><code>sqlplus sys@ORCL AS SYSDBA
+Enter password: <em>password</em></code></pre>
+                </li>
+                <li>Create the <code> PDB_REFRESHED. </code>
+                  <pre><code>SET sqlprompt "SQL_refresh&gt;</code> "</pre>
+                  <pre><code>DROP PLUGGABLE DATABASE pdb_refreshed INCLUDING DATAFILES;</code></pre>
+                  <pre><code>ALTER SESSION SET DB_CREATE_FILE_DEST= '/u02/app/oracle/oradata/ORCL/pdb_refreshed';</code></pre>
+                  <pre><code>CREATE PLUGGABLE DATABASE pdb_refreshed FROM pdb1@link_ORCL 
+           CREATE_FILE_DEST= '/u02/app/oracle/oradata/ORCL/pdb_refreshed'
+           REFRESH MODE EVERY 2 MINUTES;</code></pre>
+                </li>
+                <li>In the <em> Primary Session, </em> insert more rows into <code>
+                    USERSWITCH.BIGTAB </code> table.
+                  <pre><code>INSERT INTO userswitch.bigtab VALUES ('New DATA FROM PDB1');
+COMMIT;</code></pre>
+                </li>
+                <li>Display the rows in <code> USERSWITCH.BIGTAB </code>
+                  table.
+                  <pre><code>SELECT DISTINCT label FROM userswitch.bigtab;
+
+LABEL
+------------------------------
+New DATA FROM PDB1
+DATA FROM PDB1
+</code></pre></li>
+                <li>In the <em> Refresh Session, </em> wait two minutes before
+                  you can observe the rows in the <code> USERSWITCH.BIGTAB </code>
+                  table refreshed from <code> PDB1. </code>
+                  <pre><code>ALTER SESSION SET CONTAINER = pdb_refreshed;</code></pre>
+                  <pre><code>ALTER PLUGGABLE DATABASE OPEN READ ONLY;</code></pre>
+                </li>
+                <li>Display the data in the rows.
+                  <pre><code>SELECT DISTINCT label FROM userswitch.bigtab;
+
+LABEL
+------------------------------
+New DATA FROM PDB1
+DATA FROM PDB1</code></pre>
+                </li>
+                <li> Count the rows.
+                  <pre><code>SELECT count(*) FROM userswitch.bigtab;
+
+COUNT(*)
+----------
+     10001</code></pre>
+                </li>
+              </ol>
+            </section>
+            <hr>
+            <section>
+              <h2 id="section_3" role="button" style="text-align: left;"><img src="./img/32_3.png"
+                  3="" alt="section 3" class="num_circ" height="32" width="32">Switch
+                Over the Refreshable Cloned PDB </h2>
+              <p> In this section, you switch the primary PDB over to the
+                refreshable PDB. The refreshable PDB becomes the primary PDB and
+                vice versa.</p>
+              <ol>
+                <li>In the <em> Primary Session, </em> reconnect to the CDB
+                  root as <code> SYSDBA. </code>
+                  <pre><code>CONNECT sys@ORCL AS SYSDBA
+Enter password: <em>password</em></code></pre>
+                </li>
+                <li>In the <em> Primary Session, </em> before switching the
+                  primary <code> PDB1 </code> PDB over the refreshable clone <code>
+                    PDB_REFRESHED </code> PDB, check the status of PDBs.
+                  <pre><code>SELECT pdb_name, status FROM cdb_pdbs;
+
+PDB_NAME       STATUS
+-------------- ----------
+PDB$SEED       NORMAL
+<strong>PDB_REFRESHED  REFRESHING</strong>
+PDB1           NORMAL
+</code></pre></li>
+                <li>In the <em> Primary Session, </em> switch the primary <code>
+                    PDB1 </code> PDB over the refreshable clone <code>
+                    PDB_REFRESHED </code> PDB.
+                  <pre><code>ALTER SESSION SET CONTAINER = pdb1;</code></pre>
+                  <pre><code>ALTER PLUGGABLE DATABASE REFRESH MODE EVERY 2 MINUTES       
+                FROM pdb_refreshed@link_ORCL <strong>SWITCHOVER</strong>;</code></pre>
+                </li>
+                <li>In the <em> Primary Session, </em> verify the status of
+                  the refreshable <code> PDB1. </code>
+                  <pre><code>ALTER SESSION SET CONTAINER = cdb$root;</code></pre>
+                  <pre><code>SELECT pdb_name, status FROM cdb_pdbs;
+
+PDB_NAME       STATUS
+-------------- ----------
+PDB$SEED       NORMAL
+PDB_REFRESHED  NORMAL
+<strong>PDB1           REFRESHING</strong>
+</code></pre> </li>
+                <li>In the <em> Refresh Session, </em> start and commit a
+                  transaction in the primary <code> PDB_REFRESHED. </code>
+                  <pre><code>ALTER SESSION SET CONTAINER = pdb_refreshed;</code></pre>
+                  <pre><code>INSERT INTO userswitch.bigtab VALUES ('New DATA FROM pdb_refreshed');
+COMMIT;</code></pre>
+                </li>
+                <li>In the <em> Refresh Session, </em> display the data in the
+                  table.
+                  <pre><code>SELECT DISTINCT label FROM userswitch.bigtab;
+
+LABEL
+------------------------------
+New DATA FROM PDB1
+DATA FROM PDB1
+New DATA FROM pdb_refreshed</code></pre>
+                </li>
+                <li>In the <em> Primary Session, </em> wait two minutes before
+                  you can observe that the data in <code> PDB1 </code> is
+                  refreshed.
+                  <pre><code>ALTER SESSION SET CONTAINER = pdb1;</code></pre>
+                  <pre><code>ALTER PLUGGABLE DATABASE OPEN READ ONLY;</code></pre>
+                </li>
+                <li>In the <em> Primary Session, </em> display the data in the
+                  table.
+                  <pre><code>SELECT DISTINCT label FROM userswitch.bigtab;
+
+LABEL
+------------------------------
+New DATA FROM PDB1
+DATA FROM PDB1
+New DATA FROM pdb_refreshed</code></pre>
+                </li>
+                <li>In the <em> Primary Session, </em> count the rows.</li>
+                <pre><code>SELECT count(*) FROM userswitch.bigtab;
+
+COUNT(*)
+----------
+     10002</code></pre>
+                <li>In the <em> Primary Session, </em> close the refreshable
+                  PDB to be refreshed.
+                  <pre><code>ALTER PLUGGABLE DATABASE CLOSE;</code></pre>
+                </li>
+              </ol>
+            </section>
+            <hr>
+            <section>
+              <h2 id="section_4" role="button" style="text-align: left;"><img src="./img/32_4.png"
+                  3="" alt="section 4" class="num_circ" height="32" width="32">Reswitch</h2>
+              <p>In this section, you observe that you can switch back and forth
+                from one PDB over to its refreshed cloned PDB, <code>
+                  PDB_REFRESHED </code> over to <code> PDB1. </code> <code>
+                  PDB1 </code> rebecomes the primary PDB and <code>
+                  PDB_REFRESHED </code> rebecomes the refreshable PDB.</p>
+              <ol>
+                <li>In the <em>Refresh Session, </em> update data in <code>
+                    USERSWITCH.BIGTAB </code> table.
+                  <pre><code>UPDATE userswitch.bigtab SET label = 'DATA updated IN pdb_refreshed';
+COMMIT;
+</code></pre> </li>
+                <li>Display the data in the table.
+                  <pre><code>SELECT DISTINCT label FROM userswitch.bigtab;
+
+LABEL
+------------------------------
+DATA updated IN pdb_refreshed</code></pre>
+                </li>
+                <li>In the <em> Primary Session, </em> wait two minutes before
+                  you can observe that the data in <code> PDB1 </code> is
+                  refreshed.
+                  <pre><code>ALTER SESSION SET CONTAINER = pdb1;</code></pre>
+                  <pre><code>ALTER PLUGGABLE DATABASE OPEN READ ONLY;</code></pre>
+                </li>
+                <li>Display the data in the table.
+                  <pre><code>SELECT DISTINCT label FROM userswitch.bigtab;
+
+LABEL
+------------------------------
+DATA updated IN pdb_refreshed</code></pre>
+                </li>
+                <li>Now in the <em>Refresh Session</em>, switch the primary <code>
+                    PDB_REFRESHED </code> PDB over the refreshable clone <code>
+                    PDB1 </code> PDB.
+                  <pre><code>ALTER SESSION SET CONTAINER = pdb_refreshed;</code></pre>
+                  <pre><code>ALTER PLUGGABLE DATABASE REFRESH MODE EVERY 2 MINUTES
+         FROM pdb1@link_ORCL <strong>SWITCHOVER</strong>;</code></pre>
+                </li>
+                <li>Verify the status of the refreshable PDB_<code> REFRESHED. </code>
+                  <pre><code>ALTER SESSION SET CONTAINER = CDB$ROOT;</code></pre>
+                  <pre><code>SELECT pdb_name, status FROM cdb_pdbs;
+
+PDB_NAME       STATUS
+-------------- ----------
+PDB$SEED       NORMAL
+<strong>PDB_REFRESHED  REFRESHING
+PDB1           NORMAL</strong>
+</code></pre></li>
+              </ol>
+            </section>
+          </article>
+        </div>
+        <br class="clearfloat">
+      </div>
+    </div>
+    <!--close main-->
+    <!--end content-->
+    <div class="footer-container ">
+      <div style="max-width: 994px; padding:10px 0 0 17px;">
+        <footer class="footer-list">
+          <ul>
+            <li> <a href="https://www.oracle.com/corporate/index.html" target="_blank">About
+                Oracle</a> </li>
+            <li> <a href="https://www.oracle.com/us/corporate/contact/index.html"
+                target="_blank">Contact Us</a> </li>
+            <li> <a href="https://www.oracle.com/us/legal/index.html" target="_blank">Legal
+                Notices</a> </li>
+            <li> <a href="https://www.oracle.com/us/legal/terms/index.html" target="_blank">Terms
+                of Use</a> </li>
+            <li> <a href="https://www.oracle.com/us/legal/privacy/index.html" target="_blank">Your
+                Privacy Rights</a> </li>
+            <li><a href="https://www.oracle.com/pls/topic/lookup?ctx=cpyr&amp;id=en">Copyright
+                © 2017, 2018, Oracle and/or its affiliates. All rights reserved.</a></li>
+          </ul>
+        </footer>
+      </div>
+      <script type="text/javascript" src="https://www.oracleimg.com/us/assets/metrics/ora_docs.js"></script>
+    </div>
+  </body>
+</html>

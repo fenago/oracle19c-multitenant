@@ -1,0 +1,5 @@
+SET ECHO ON
+
+DROP DATABASE;
+
+exit
